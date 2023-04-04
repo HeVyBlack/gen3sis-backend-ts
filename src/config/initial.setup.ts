@@ -14,6 +14,7 @@ export const dotEnv = {
   MAIL_PASS: String(process.env.MAIL_PASS),
   SOPORT_G3: String(process.env.SOPORT_G3),
   SECRET_STAFF_WORD: String(process.env.SECRET_STAFF_WORD),
+  SECRET_RESET_WORD: String(process.env.SECRET_RESET_WORD),
   MAIL_FOR_ING: String(process.env.MAIL_FOR_ING),
   MAIL_FOR_PART: String(process.env.MAIL_FOR_PART),
 };
@@ -31,6 +32,7 @@ const dictionary = {
   SECRET_STAFF_WORD: "palabra secreta para staff",
   MAIL_FOR_ING: "email de ingenieria",
   MAIL_FOR_PART: "email de partner",
+  SECRET_RESET_WORD: "secret word for resets",
 };
 
 export function valiateConfig() {
