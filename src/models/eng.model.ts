@@ -12,6 +12,11 @@ import { CError, countries } from "../utils/variables.ts";
 import argon2 from "argon2";
 import mongoose from "mongoose";
 
+@modelOptions({
+  options: {
+    allowMixed: Severity.ALLOW,
+  },
+})
 class Info {
   @prop({ type: String, trim: true })
   name: string;
@@ -118,6 +123,7 @@ export class Eng {
   })
   roles: Ref<Role>[];
 
+  @prop()
   info?: Info;
 
   public async encryptPassword(pasword: string) {

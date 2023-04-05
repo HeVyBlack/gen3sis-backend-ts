@@ -1,5 +1,6 @@
 import { Router } from "express";
 import {
+  customSchemaValidator,
   schemaValidation,
   signValidator,
   validateEngToken,
@@ -12,10 +13,12 @@ import {
 import {
   engConfirmEmail,
   engForgotPassword,
+  engPostInfoForm,
   engResetPassword,
   engSignIn,
 } from "../controllers/eng.ctrl.ts";
 import { getEngUser } from "../controllers/eng.ctrl.ts";
+import { CustomEngFormSchema, EngformSchema } from "../schema/eng.schema.ts";
 const router = Router();
 
 router.post(
@@ -36,8 +39,18 @@ router.post(
 
 router.patch(
   "/reset-password",
-  [schemaValidation(ResetPasswordSchema)],
+  [validateEngToken, schemaValidation(ResetPasswordSchema)],
   engResetPassword
+);
+
+router.post(
+  "/post-infoform",
+  [
+    validateEngToken,
+    schemaValidation(EngformSchema),
+    customSchemaValidator(CustomEngFormSchema),
+  ],
+  engPostInfoForm
 );
 
 export default router;

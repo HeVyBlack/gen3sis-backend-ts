@@ -1,6 +1,11 @@
 import "dotenv/config";
 import app from "./app.ts";
-import { createRoles, dotEnv, valiateConfig } from "./config/initial.setup.ts";
+import {
+  createRoles,
+  deleteResets,
+  dotEnv,
+  valiateConfig,
+} from "./config/initial.setup.ts";
 import { CError } from "./utils/variables.ts";
 import logger from "./utils/logger.ts";
 import { connectToMongo } from "./config/mongo.ts";
@@ -20,6 +25,8 @@ try {
   await connectToMongo();
 
   await createRoles();
+
+  await deleteResets();
 
   const PORT = Number(dotEnv.PORT) || 3001;
 

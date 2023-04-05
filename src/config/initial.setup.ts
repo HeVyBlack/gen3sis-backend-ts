@@ -2,6 +2,7 @@ import { objectKeys } from "../utils/functions.ts";
 import { CError } from "../utils/variables.ts";
 import Roles from "../models/role.model.ts";
 import logger from "../utils/logger.ts";
+import ResetPasswordModel from "../models/reset.pasword.model.ts";
 
 export const dotEnv = {
   SECRET_WORD: String(process.env.SECRET_WORD),
@@ -68,4 +69,9 @@ export async function createRoles() {
     if (e instanceof Error) logger.error(e.message);
     else console.error(e);
   }
+}
+
+export async function deleteResets() {
+  await ResetPasswordModel.deleteMany();
+  logger.info("Deleting resets...");
 }

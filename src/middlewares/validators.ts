@@ -5,19 +5,23 @@ import logger from "../utils/logger.ts";
 import jwt, { JwtPayload } from "jsonwebtoken";
 import { dotEnv } from "../config/initial.setup.ts";
 import EngModel from "../models/eng.model.ts";
+import { httpErrorHandler } from "../utils/error.handler.ts";
+import { isArray, isObject, objectKeys } from "../utils/functions.ts";
 
 export const schemaValidation =
   (schema: AnyZodObject) =>
   (req: Request, res: Response, next: NextFunction) => {
     try {
-      schema.parse({
+      req = schema.parse({
         body: req.body,
         params: req.params,
         query: req.params,
-      });
+      }) as Request;
+
       return next();
     } catch (e) {
       if (e instanceof ZodError) {
+        console.log(e.issues.map((i) => i.path));
         return res.status(400).json(e.issues.map((issue) => issue.message));
       }
       return res.status(500).json("Internal server error!");
@@ -42,11 +46,7 @@ export function signValidator(req: Request, res: Response, next: NextFunction) {
 
     return next();
   } catch (e) {
-    if (e instanceof Error) {
-      logger.error(e.message);
-    } else console.error(e);
-
-    return res.status(500).json("Internal server error!");
+    return httpErrorHandler(res, e);
   }
 }
 
@@ -82,3 +82,41 @@ export async function validateEngToken(
     return res.status(500).json("Internal server error!");
   }
 }
+
+export const customSchemaValidator =
+  <T>(cSchema: T) =>
+  (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const eterateSchema = <TT>(schema: T, e_body: TT, a_body: {}) => {
+        let e_msg: string[] = [];
+        objectKeys(schema as object).forEach((val) => {
+          if (isObject(schema[val])) {
+            if (!isObject(e_body[val])) e_msg.push(`${val} must be an object!`);
+            else {
+              const r = eterateSchema(schema[val], e_body[val], a_body[val]);
+              r.e_msg.forEach((i: string) => e_msg.push(i));
+              Object.assign(a_body, r.a_body);
+            }
+          } else {
+            const r = (cSchema[val] as Function)(e_body[val]);
+            if (isObject(r)) {
+              if ("value" in r) (e_body[val] as TT) = r.value;
+              a_body[val] = e_body[val];
+            } else if (typeof r === "string") e_msg.push(r);
+            else if (isArray(r)) r.forEach((i: string) => e_msg.push(i));
+          }
+        });
+        return { e_msg, a_body };
+      };
+
+      const r = eterateSchema(cSchema, req.body, {});
+
+      if (r.e_msg.length > 0) return res.status(400).json(r.e_msg);
+
+      req.body = r.a_body;
+
+      return next();
+    } catch (e) {
+      return httpErrorHandler(res, e);
+    }
+  };

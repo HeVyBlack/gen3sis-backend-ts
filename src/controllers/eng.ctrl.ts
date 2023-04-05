@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import EngModel, { Eng } from "../models/eng.model.ts";
 import logger from "../utils/logger.ts";
-import { CError, banEmailList } from "../utils/variables.ts";
+import { banEmailList } from "../utils/variables.ts";
 import { SignSchemaType } from "../schema/basic.schema.ts";
 import RoleModel from "../models/role.model.ts";
 import transporter from "../config/nodemailer.ts";
@@ -10,6 +10,7 @@ import { dotEnv } from "../config/initial.setup.ts";
 import { validate as validateEmail } from "email-validator";
 import ResetPasswordModel from "../models/reset.pasword.model.ts";
 import cron from "cron";
+import { httpErrorHandler } from "../utils/error.handler.ts";
 
 const CronJob = cron.CronJob;
 
@@ -34,11 +35,7 @@ export async function engSignIn(req: Request, res: Response) {
 
     return res.status(200).json(token);
   } catch (e) {
-    if (e instanceof CError) return res.status(500).json(e.msg);
-    if (e instanceof Error) {
-      logger.error(e.message);
-    }
-    return res.status(500).json("Internal server error!");
+    return httpErrorHandler(res, e);
   }
 }
 
@@ -70,9 +67,7 @@ async function createEng(
       .status(200)
       .json("User is now register! Please, confirm your email!");
   } catch (e) {
-    if (e instanceof CError) return res.status(500).json(e.msg);
-    if (e instanceof Error) logger.error(e.message);
-    return res.status(500).json("Internal server error!");
+    return httpErrorHandler(res, e);
   }
 }
 
@@ -103,10 +98,7 @@ export async function engConfirmEmail(req: Request, res: Response) {
 
     return res.status(200).json("Email verified!");
   } catch (e) {
-    if (e instanceof Error) {
-      logger.error(e.message);
-    }
-    return res.status(500).json("Internal server error!");
+    return httpErrorHandler(res, e);
   }
 }
 
@@ -120,8 +112,7 @@ export function getEngUser(req: Request, res: Response) {
       user_checked,
     });
   } catch (e) {
-    if (e instanceof Error) logger.error(e.message);
-    return res.status(500).json("Internal server error!");
+    return httpErrorHandler(res, e);
   }
 }
 
@@ -166,8 +157,7 @@ export async function engForgotPassword(req: Request, res: Response) {
       job.start();
     }
   } catch (e) {
-    if (e instanceof Error) logger.error(e.message);
-    return res.status(500).json("Internal server error!");
+    return httpErrorHandler(res, e);
   }
 
   return res.status(200).json("If email is found, an email will be send!");
@@ -224,8 +214,29 @@ export async function engResetPassword(req: Request, res: Response) {
 
     return res.status(200).json("Password reset successfully!");
   } catch (e) {
-    if (e instanceof Error) logger.error(e.message);
-    return res.status(500).json("Internal server error!");
+    httpErrorHandler(res, e);
+  }
+}
+
+export async function engPostInfoForm(req: Request, res: Response) {
+  try {
+    const { user } = req;
+
+    if (user.verified_info)
+      return res.status(400).json("User already send the form!");
+
+    user.info = req.body;
+
+    user.verified_info = true;
+
+    Promise.all([
+      utils.sendInfoFormComplete(user),
+      EngModel.findOneAndUpdate({ code: user.code }, user),
+    ]);
+
+    return res.status(200).json("Recieved!");
+  } catch (e) {
+    return httpErrorHandler(res, e);
   }
 }
 
@@ -282,6 +293,27 @@ const utils = {
         subject: `Contraseña cambiada satisfactoriamente!`,
         html: `<h1>Acabas de cambiar tu contraseña</h1>
                <h2>Si no fuiste tú, cambiala! <a href="${process.env.FRONTEND_HOST}/eng/restore-password" target="_blank"><h2><strong>aquí</strong></h2></a><h2>`,
+      }),
+    ]);
+  },
+  async sendInfoFormComplete(user: Eng) {
+    const { email } = user;
+
+    Promise.all([
+      transporter.sendMail({
+        from: `'Soporte Gen3sis' <${process.env.MAIL_USER}>`,
+        to: email,
+        subject: `Contraseña completar tu perfil satisfactoriamente!`,
+        html: `<h1>Acabas de completar tu perfil</h1>
+               <h2>Ahora falta esperar a que te hagan un check!<h2>`,
+      }),
+      transporter.sendMail({
+        from: `'Soporte Gen3sis' <${process.env.MAIL_USER}>`,
+        to: dotEnv.MAIL_FOR_ING,
+        subject: `El ingeniero ${user.email} Acaba de actualizar su información del formulario`,
+        html: `<h1>El ingeniero ${user.email} actualizó su información, por favor </h1>
+        <a href="${process.env.FRONTEND_HOST}/staff/dashboard/search-users?email=${user.email}" target="_blank"><strong><h2><strong>verificarlo</strong></h2></strong></a>
+        <p>Este mensaje de correo electrónico y sus adjuntos puede contener información confidencial, privilegiada o legalmente protegida y esta destinado únicamente para el uso del destinatario(s) previsto(s). Cualquier divulgación, difusión, distribución, copia o la toma de cualquier acción basada en la información aquí contenida esta prohibido. Los correos electrónicos no son seguros y no se pueden garantizar que estén libre de errores, ya que pueden ser interceptados, modificados, o contener virus. Cualquier persona que se comunica con esta organización por e-mail se considera que ha aceptado estos riesgos. La organización no se hace responsable de los errores u omisiones de este mensaje y no sera responsable por danos derivados de la utilización del correo electrónico situación que conoce y acepta el destinatario. Cualquier opinión y otra declaración contenida en este mensaje y cualquier archivo adjunto son de exclusiva responsabilidad del autor y no representan necesariamente la posición de la empresa. Si recibe este mensaje por error, por favor notificarlo al remitente de inmediato y desecharlo de su sistema. El destinatario autoriza a la empresa remitente el tratamiento y protección de los datos de contacto (direcciones de correo físico, electrónico, redes sociales y teléfono).</p>`,
       }),
     ]);
   },
